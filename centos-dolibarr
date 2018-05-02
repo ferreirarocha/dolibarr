@@ -1,0 +1,58 @@
+	yum install https://centos7.iuscommunity.org/ius-release.rpm -y
+	yum remove webtatic-release -y
+	yum update  -y
+
+	yum install wget bzip2 nano   httpd httpd-devel gcc unzip mariadb mariadb-server   php71u php71u-ldap php71u-pecl-apcu-bc \
+	php71u-mysqlnd php71u-imap php71u-xmlrpc php71u-xml  php71u-pecl-apcu-devel php71u-bcmath  php71u-pecl-apcu  php71u-pear php71u-imap php71u-json php71u-ldap \
+	php71u-opcache  php71u-gd php71u-common php71u-mbstring php71u-cli  openssl mod_ssl -y ;
+
+
+	systemctl start mariadb.service ;
+	systemctl enable mariadb.service
+	systemctl enable httpd.service
+
+
+
+
+
+	wget -c -O dolibarr-$3.tgz https://sourceforge.net/projects/dolibarr/files/Dolibarr%20ERP-CRM/$3/dolibarr-$3.tgz/download
+	tar xvfz dolibarr-$3.tgz
+
+	rm -rf /var/www/html/$1 ; mkdir /var/www/html/$1
+
+	mv dolibarr-$3/* /var/www/html/$1
+
+	chmod 775 /var/www/html/$1/*
+	chown  apache:apache -Rf /var/www/html/$1
+
+
+ipnameserver=$(ip a show dev enp0s3 | grep -oP '(\d{1,3}\.){1,3}\d{1,3}' | head -1)
+
+cat <<EOF>  /etc/httpd/conf.d/$1.alfabech.com.br.conf
+
+<VirtualHost *:80>
+ ServerAdmin webmaster@your-domain.com
+ DocumentRoot "/var/www/html/$1/htdocs"
+ ServerName $ipnameserver
+ ErrorLog "/var/log/httpd/dolibarr-error_log"
+ CustomLog "/var/log/httpd/dolibarr-access_log combined"
+  <Directory "/var/www/html/$1/htdocs/">
+		DirectoryIndex index.php
+		Options FollowSymLinks
+		AllowOverride All
+		Require all granted
+	</Directory>
+</VirtualHost>
+
+EOF
+
+
+	systemctl restart httpd
+
+	firewall-cmd --zone=public --add-port=80/tcp --permanent
+
+	firewall-cmd --reload
+
+	mysql -u root -e "create database $1 character set utf8";
+	mysql -u root -e "create user '$1'@'localhost' identified by '$2'";
+	mysql -u root -e "grant all on $1.* to '$1'@'localhost'  with grant option";
